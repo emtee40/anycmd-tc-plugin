@@ -51,11 +51,27 @@ HWND      listWin = 0;
 std::string g_text;
 std::string g_text_lo;
 char        inifilename[MAX_PATH]="anycmd.ini";
+char        wincmd_name[MAX_PATH];
 
 char detect_string[MAX_PATH];
 char command_string[MAX_PATH];
 char cmd[MAX_PATH];
 int  streams = 3;
+
+struct TcFont
+{
+    char  name[MAX_PATH];
+    int   height;
+    int   weight;
+    DWORD italic;
+    DWORD charset;
+};
+
+TcFont font1;
+TcFont font2;
+TcFont font3;
+
+
 
 //---------------------------------------------------------------------------
 static char*
@@ -189,10 +205,21 @@ FindPrivateIniName()
 }
 
 
+static void
+store_wincmd_ini_path( char* default_ini_path )
+{
+    strncpy( wincmd_name, default_ini_path, MAX_PATH - 1 );
+    PathRemoveFileSpec( wincmd_name );
+    PathAppend( wincmd_name, "wincmd.ini" );
+}
+
+
 //---------------------------------------------------------------------------
 void APIENTRY
 ListSetDefaultParams( ListDefaultParamStruct* dps )
 {
+    store_wincmd_ini_path( dps->DefaultIniName );
+
     if ( !FindPrivateIniName() ) {
         strlcpy( inifilename, dps->DefaultIniName, MAX_PATH-1 );
     }
@@ -232,7 +259,8 @@ ListSetDefaultParams( ListDefaultParamStruct* dps )
                                inifilename );
     
     // Substitute environment variables within the command
-    find_and_substitute_env_vars( command_string, sizeof( command_string ) );
+    DoEnvironmentSubst( command_string, sizeof( command_string ) );
+    //find_and_substitute_env_vars( command_string, sizeof( command_string ) );
 }
 
 
@@ -267,6 +295,34 @@ HWND APIENTRY
 }
 
 
+static void
+retrieve_default_font_params()
+{
+    GetPrivateProfileString( "Lister",
+                             "Font1",
+                             0,
+                             font1.name,
+                             sizeof( font1.name ),
+                             wincmd_name );
+    std::string font1_text( font1.name );
+    size_t pos = font1_text.find( ',');
+    if ( pos != std::string::npos ) {
+        font1.height = strtol( font1.name + pos + 1, 0, 0 );
+        font1.weight = ( font1_text.find( ",b" ) != std::string::npos ) ?
+                       FW_BOLD : 0;
+        font1.italic = ( font1_text.find( ",i" ) != std::string::npos );
+        font1.name[pos] = 0;
+        size_t pos1 = font1_text.find_last_of( ',' );
+        if ( pos1 > pos ) {
+            font1.charset = strtol( font1.name + pos1 + 1, 0, 0 );
+        }
+        else {
+            font1.charset = 0;
+        }
+    }
+}
+
+
 //---------------------------------------------------------------------------
 int APIENTRY
 ListLoadNext( HWND parentWin, HWND listWin, char* fileToLoad, int showFlags)
@@ -287,6 +343,12 @@ ListLoadNext( HWND parentWin, HWND listWin, char* fileToLoad, int showFlags)
     HFONT font;
     if ( showFlags & lcp_ansi ) {
         font = (HFONT)GetStockObject( ANSI_FIXED_FONT );
+
+        retrieve_default_font_params();
+        font = CreateFont( font1.height, 0, 0, 0,
+                           font1.weight, font1.italic, 0, 0,
+                           font1.charset, 0, 0, 0, 0,
+                           font1.name );
     }
     else {
         font = (HFONT)GetStockObject( SYSTEM_FIXED_FONT );
