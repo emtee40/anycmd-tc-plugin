@@ -44,7 +44,7 @@ extern char      command_string[];
 
 BOOL         createTargetProcess( const char* cmd, unsigned int streams );
 void         closeTargetProcess();
-void         getOutputFromChildProcess();
+void         waitForCompletionThread();
 DWORD WINAPI reader( LPVOID lpParameter );
 
 #ifdef _M_X64
@@ -83,7 +83,7 @@ std::string receive_text( const char* cmd, unsigned int streams )
     // Create the child process and get its output 
     res = "";
     if ( createTargetProcess( cmd, streams ) ) {
-        getOutputFromChildProcess();
+        waitForCompletionThread();
     }
     closeTargetProcess();
 
@@ -144,14 +144,12 @@ void closeTargetProcess()
 }
 
 
-void getOutputFromChildProcess()
-{ 
-    DWORD  threadID;
-    HANDLE thread     = CreateThread( 0, 0, reader, 0, 0, &threadID );
-    HWND   waitDialog = CreateDialog( hinst,
-        MAKEINTRESOURCE( IDD_WAIT_DIALOG ),
-        listWin,
-        dlgProc );
+void waitForCompletionDialogBox()
+{
+    HWND waitDialog = CreateDialog( hinst,
+                                    MAKEINTRESOURCE( IDD_WAIT_DIALOG ),
+                                    listWin,
+                                    dlgProc );
 
     int count = 0;
     if( waitDialog != NULL ) {
@@ -180,8 +178,19 @@ void getOutputFromChildProcess()
 
         DestroyWindow( waitDialog );
     }
+}
 
-    TerminateThread( thread, 0 );
+
+void waitForCompletionThread()
+{ 
+    DWORD  threadID;
+    HANDLE thread     = CreateThread( 0, 0, reader, 0, 0, &threadID );
+    
+    if ( thread != 0 ) {
+        waitForCompletionDialogBox();
+#pragma warning(suppress: 6258)
+        TerminateThread( thread, 0 );
+    }
 }
 
 

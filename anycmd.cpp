@@ -209,6 +209,7 @@ static void
 store_wincmd_ini_path( char* default_ini_path )
 {
     strncpy( wincmd_name, default_ini_path, MAX_PATH - 1 );
+    wincmd_name[MAX_PATH - 1] = 0;
     PathRemoveFileSpec( wincmd_name );
     PathAppend( wincmd_name, "wincmd.ini" );
 }
